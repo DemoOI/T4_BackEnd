@@ -1,0 +1,48 @@
+﻿<#@ template language="C#" #>
+<#@ assembly name="System.Core" #>
+<#@ import namespace="System.Linq" #>
+<#@ import namespace="System.Text" #>
+<#@ import namespace="System.IO" #>
+<#@ import namespace="System.Data" #>
+<#@ import namespace="System.Collections.Generic" #>
+<#@ import namespace="System.Data.SqlClient" #>
+<#@ parameter type="System.String" name="NameSpace" #>
+<#@ parameter type="System.String" name="DbName" #>
+<#@ parameter type="System.String" name="TableName" #>
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace <#=NameSpace#>.Model.Domain
+{
+<#//修改connection string
+			string connectionString = "Server=localhost;Database="+DbName+";Trusted_Connection=true"; 
+			SqlConnection conn = new SqlConnection(connectionString); 
+			conn.Open(); 			
+			//如果需要database中全部table，則使用conn.GetSchema("Tables")即可
+			string[] restrictions = new string[4];
+			restrictions[1] = "dbo";
+			//修改table名稱
+			restrictions[2] = TableName;
+			DataTable schema = conn.GetSchema("Tables", restrictions);			
+			string selectQuery = "select * from  @tableName"; 
+			SqlCommand command = new SqlCommand(selectQuery,conn); 
+			SqlDataAdapter ad = new SqlDataAdapter(command); 
+			System.Data.DataSet ds = new DataSet(); 			
+			foreach(System.Data.DataRow row in schema.Rows) 
+			{#>
+    public class <#= row["TABLE_NAME"].ToString().Trim('s') #>Model
+    {
+<#command.CommandText = selectQuery.Replace("@tableName",row["TABLE_NAME"].ToString()); 
+				  ad.FillSchema(ds, SchemaType.Mapped, row["TABLE_NAME"].ToString());
+
+				  foreach (DataColumn dc in ds.Tables[0].Columns)
+				  {
+#>
+        public <#= dc.DataType.Name #> <#= dc.ColumnName #>  { get; set; }
+<#}#>                                
+    }
+<#}#>
+}
